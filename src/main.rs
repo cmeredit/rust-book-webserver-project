@@ -3,20 +3,25 @@ use std::io::{BufReader, prelude::*};
 use std::net::{TcpListener, TcpStream};
 
 fn main() {
-    // Bind to localhost + OS assigned port
-    let socket = TcpListener::bind("127.0.0.1:0").unwrap();
+    // // Bind to loopback interface + OS assigned port
+    // let socket = TcpListener::bind("127.0.0.1:0").unwrap();
+    // Bind to all interfaces + fixed port
+    let socket = TcpListener::bind("0.0.0.0:7879").unwrap();
+
     // Print the socket address (which also exposes the port info)
     dbg!(socket.local_addr().unwrap());
 
+    // Pass any incoming requests off to handle_connection
     for stream in socket.incoming() {
         let stream = stream.unwrap();
-        // dbg!(&stream);
+        //dbg!(&stream);
         handle_connection(stream);
     }
 }
 
 fn handle_connection(mut stream: TcpStream) {
     let buf_reader = BufReader::new(&stream);
+
     // Method Request-URI HTTP-Version CRLF
     // headers CRLF
     // message-body
