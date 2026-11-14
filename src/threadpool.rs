@@ -5,7 +5,10 @@ impl ThreadPool {
         ThreadPool {}
     }
 
-    pub fn execute(&self, closure: Box<dyn FnOnce()>) {
-        closure()
+    pub fn execute<F>(&self, f: F)
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        f()
     }
 }
