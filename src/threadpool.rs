@@ -5,7 +5,7 @@ use std::thread::JoinHandle;
 
 type Job = Box<dyn FnOnce() + Send + 'static>;
 pub struct ThreadPool {
-    _workers: Vec<Worker>,
+    workers: Vec<Worker>,
     sender: mpsc::Sender<Job>,
 }
 
@@ -34,10 +34,7 @@ impl ThreadPool {
             }
         }
 
-        ThreadPool {
-            _workers: workers,
-            sender,
-        }
+        ThreadPool { workers, sender }
     }
 
     pub fn execute<F>(&self, f: F)
@@ -51,10 +48,25 @@ impl ThreadPool {
     }
 }
 
+impl Drop for ThreadPool {
+    fn drop(&mut self) {
+        for worker in self.workers.drain(..) {
+            println!("Shutting down worker {}", worker.id);
+
+            if let Err(e) = worker.thread.join() {
+                eprintln!(
+                    "Failed to join worker with id {}. Associated thread panicked: {:?}",
+                    worker.id, e
+                );
+            };
+        }
+    }
+}
+
 #[derive(Debug)]
 struct Worker {
-    _id: usize,
-    _thread: JoinHandle<()>,
+    id: usize,
+    thread: JoinHandle<()>,
     // receiver: Arc<Mutex<mpsc::Receiver<Job>>>,
 }
 
@@ -77,9 +89,6 @@ impl Worker {
 
         // let thread_handle = thread::spawn(|| {});
 
-        Ok(Worker {
-            _id: id,
-            _thread: thread,
-        })
+        Ok(Worker { id, thread })
     }
 }
