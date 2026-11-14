@@ -40,8 +40,6 @@ pub fn run() -> anyhow::Result<()> {
 // Tries to read an HTTP request from the stream and send back some HTML.
 // Times out after `timeout_secs` seconds
 fn handle_connection(mut stream: TcpStream, timeout_secs: u64) -> anyhow::Result<()> {
-    // let buf_reader = BufReader::new(&stream);
-
     // Try to set a timeout on the stream
     // Should always work, but there could be OS errors deep underneath
     stream
@@ -58,14 +56,19 @@ fn handle_connection(mut stream: TcpStream, timeout_secs: u64) -> anyhow::Result
     // Method Request-URI HTTP-Version CRLF
     // headers CRLF
     // message-body
-    let _http_request: Vec<String> =
+    let http_request: Vec<String> =
         read_request_lines(&mut stream_reader, 1024).context("Could not read stream")?;
+
+    let (status_line, filename) = match http_request.first().map(|s| &s[..]) {
+        Some("GET / HTTP/1.1") => ("HTTP/1.1 200 OK", "hello.html"),
+        _ => ("HTTP/1.1 404 NOT FOUND", "404.html"),
+    };
 
     // HTTP-Version Status-Code Reason-Phrase CRLF
     // headers CRLF
     // message-body
-    let status_line = "HTTP/1.1 200 OK";
-    let contents = fs::read_to_string("hello.html").unwrap();
+    // let status_line = "HTTP/1.1 200 OK";
+    let contents = fs::read_to_string(filename).unwrap();
     let length = contents.len();
     let response = format!("{status_line}\r\nContent-Length: {length}\r\n\r\n{contents}");
 
