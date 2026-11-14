@@ -6,7 +6,7 @@ use std::thread::JoinHandle;
 type Job = Box<dyn FnOnce() + Send + 'static>;
 pub struct ThreadPool {
     workers: Vec<Worker>,
-    sender: mpsc::Sender<Job>,
+    sender: Option<mpsc::Sender<Job>>,
 }
 
 impl ThreadPool {
@@ -34,7 +34,10 @@ impl ThreadPool {
             }
         }
 
-        ThreadPool { workers, sender }
+        ThreadPool {
+            workers,
+            sender: Some(sender),
+        }
     }
 
     pub fn execute<F>(&self, f: F)
@@ -43,6 +46,8 @@ impl ThreadPool {
     {
         let job = Box::new(f);
         self.sender
+            .as_ref()
+            .expect("Sender should be available for entire life of owning ThreadPool")
             .send(job)
             .expect("Threadpool should be able to send job");
     }
@@ -50,6 +55,11 @@ impl ThreadPool {
 
 impl Drop for ThreadPool {
     fn drop(&mut self) {
+        // Take the sender (replacing contained value with None) and drop it
+        // Workers will finish their current job and exit upon next call to recv
+        // (they recognize that the channel has closed and exit)
+        drop(self.sender.take());
+
         for worker in self.workers.drain(..) {
             println!("Shutting down worker {}", worker.id);
 
@@ -75,14 +85,26 @@ impl Worker {
         let thread = thread::Builder::new()
             .spawn(move || {
                 loop {
-                    // Get that dang ol job
-                    let job = receiver
+                    // Wait for a message...
+                    // If the channel is open, this blocks and waits for an Ok(message).
+                    // If the channel is closed, we get an Err(_)
+                    let message = receiver
                         .lock()
                         .expect("Mutex should not be in poisoned state")
-                        .recv()
-                        .expect("Channel should be open");
-                    println!("Worker {id} got a job; executing.");
-                    job();
+                        .recv();
+
+                    match message {
+                        // There's always more work to do!
+                        Ok(job) => {
+                            println!("Worker {id} got a job; executing.");
+                            job();
+                        }
+                        // Channel has closed, so it's time to rest
+                        Err(_) => {
+                            println!("Worker {id} disconnected; shutting down.");
+                            break;
+                        }
+                    }
                 }
             })
             .context("Could not create thread")?;

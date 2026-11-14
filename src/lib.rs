@@ -23,7 +23,10 @@ pub fn run() -> anyhow::Result<()> {
     let pool = threadpool::ThreadPool::new(4);
 
     // Pass any incoming requests off to handle_connection
-    for stream_result in socket.incoming() {
+    // For sake of testing graceful shutdown, we only handle 4 requests before exiting run,
+    // thereby dropping threadpool,
+    // thereby calling our nice shutdown code from impl Drop for Threadpool.
+    for stream_result in socket.incoming().take(4) {
         // Try to handle the connection
         match stream_result {
             Ok(stream) => {
@@ -62,5 +65,6 @@ pub fn run() -> anyhow::Result<()> {
         // }
     }
 
+    println!("Shutting down.");
     Ok(())
 }
