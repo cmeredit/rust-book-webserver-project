@@ -109,8 +109,6 @@ impl Worker {
             })
             .context("Could not create thread")?;
 
-        // let thread_handle = thread::spawn(|| {});
-
         Ok(Worker { id, thread })
     }
 }

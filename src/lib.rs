@@ -39,30 +39,10 @@ pub fn run() -> anyhow::Result<()> {
                         eprintln!("{e:#}");
                     }
                 }));
-
-                // let connection_result = handle_connection(stream, 10);
-                //
-                // // We have a connection but couldn't read/write from it,
-                // // so just report it and move on
-                // if let Err(e) = connection_result {
-                //     eprintln!("{e:#}");
-                // }
             }
             // We couldn't make the connection, so report the error and move on.
             e @ Err(_) => eprintln!("Failed to accept connection: {:?}", e),
         };
-
-        // // Try to handle the connection
-        // let connection_result = stream_result
-        //     .context("Failed to accept connection")
-        //     .and_then(|stream| handle_connection(stream, 10));
-        //
-        // // If we got an error from the connection handler, or could not connect at all,
-        // // print it to standard error and continue
-        // // We don't want to stop the server over a failed connection, so just report it and move on
-        // if let Err(e) = connection_result {
-        //     eprintln!("{e:#}")
-        // }
     }
 
     println!("Shutting down.");
