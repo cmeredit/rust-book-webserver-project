@@ -3,8 +3,9 @@ use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
 use std::thread::JoinHandle;
 
+type Job = Box<dyn FnOnce() + Send + 'static>;
 pub struct ThreadPool {
-    workers: Vec<Worker>,
+    _workers: Vec<Worker>,
     sender: mpsc::Sender<Job>,
 }
 
@@ -33,38 +34,52 @@ impl ThreadPool {
             }
         }
 
-        ThreadPool { workers, sender }
+        ThreadPool {
+            _workers: workers,
+            sender,
+        }
     }
 
     pub fn execute<F>(&self, f: F)
     where
         F: FnOnce() + Send + 'static,
     {
-        f()
+        let job = Box::new(f);
+        self.sender
+            .send(job)
+            .expect("Threadpool should be able to send job");
     }
 }
 
 #[derive(Debug)]
 struct Worker {
-    id: usize,
-    thread: JoinHandle<()>,
-    receiver: Arc<Mutex<mpsc::Receiver<Job>>>,
+    _id: usize,
+    _thread: JoinHandle<()>,
+    // receiver: Arc<Mutex<mpsc::Receiver<Job>>>,
 }
 
 impl Worker {
     fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Job>>>) -> anyhow::Result<Worker> {
         let thread = thread::Builder::new()
-            .spawn(|| {})
+            .spawn(move || {
+                loop {
+                    // Get that dang ol job
+                    let job = receiver
+                        .lock()
+                        .expect("Mutex should not be in poisoned state")
+                        .recv()
+                        .expect("Channel should be open");
+                    println!("Worker {id} got a job; executing.");
+                    job();
+                }
+            })
             .context("Could not create thread")?;
 
         // let thread_handle = thread::spawn(|| {});
 
         Ok(Worker {
-            id,
-            thread,
-            receiver,
+            _id: id,
+            _thread: thread,
         })
     }
 }
-
-struct Job;
