@@ -1,6 +1,6 @@
-use std::fs;
 use std::io::BufReader;
 use std::net::{TcpListener, TcpStream};
+use std::{fs, thread};
 
 use anyhow::Context;
 use std::io::prelude::*;
@@ -61,6 +61,11 @@ fn handle_connection(mut stream: TcpStream, timeout_secs: u64) -> anyhow::Result
 
     let (status_line, filename) = match http_request.first().map(|s| &s[..]) {
         Some("GET / HTTP/1.1") => ("HTTP/1.1 200 OK", "hello.html"),
+        Some("GET /sleep HTTP/1.1") => {
+            // Sleep for 5 seconds to simulate slow request
+            thread::sleep(Duration::from_secs(5));
+            ("HTTP/1.1 200 OK", "hello.html")
+        }
         _ => ("HTTP/1.1 404 NOT FOUND", "404.html"),
     };
 
